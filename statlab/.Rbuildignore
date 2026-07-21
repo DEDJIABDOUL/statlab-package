@@ -1,0 +1,9 @@
+^statlab\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^\.github$
+^renv$
+^renv\.lock$
+^\.Rprofile$
+^README\.Rmd$
+^\.vscode$

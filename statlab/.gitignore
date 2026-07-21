@@ -1,0 +1,26 @@
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# renv
+renv/library/
+renv/local/
+renv/staging/
+renv/python/
+renv/sandbox/
+
+# Build artefacts
+/*.tar.gz
+/*.Rcheck/
+
+# Donnees et livrables non versionnes
+/corpus/
+/projets-clients/
+/sorties/
+
+# Divers
+.DS_Store
+Thumbs.db

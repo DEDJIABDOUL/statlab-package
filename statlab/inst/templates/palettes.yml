@@ -1,0 +1,71 @@
+# =============================================================================
+# Palettes de couleurs de la charte graphique (R/theme.R).
+# =============================================================================
+#
+# Ce fichier est editable sans toucher au code R.
+#
+# qualitative : couleurs categorielles (groupes, modalites). Construites en
+#   espace HCL avec une luminosite (L) volontairement DIFFERENTE pour
+#   chaque couleur (et pas seulement une teinte differente) : c'est ce qui
+#   permet de rester distinguables apres conversion en niveaux de gris
+#   (deux teintes de meme luminosite deviennent le meme gris). L'ordre est
+#   important : les premieres couleurs de la liste sont les mieux
+#   separees (verifie par st_palette() avec colorspace::deutan/protan/
+#   desaturate) ; retenir un prefixe de cette liste (les n premieres)
+#   plutot que des elements choisis au hasard.
+#   Au-dela de 6 couleurs simultanees, la separation garantie se degrade
+#   (limite mathematique connue : impossible de garder de grands ecarts
+#   de luminosite pour un grand nombre de couleurs sur une plage
+#   utilisable) ; st_palette() emet un avertissement dans ce cas plutot
+#   que de le passer sous silence.
+#
+# sequentielle : magnitude continue, une seule teinte, du clair au fonce.
+#
+# divergente : deux poles opposes + un point neutre. Bleu-rouge plutot que
+#   rouge-vert : cet axe reste distinguable en deuteranopie/protanopie
+#   (qui confondent precisement le rouge et le vert).
+#
+# gris_impression : palette en niveaux de gris utilisee par la
+#   declinaison "impression" (jamais de couleur imprimee) ; le motif de
+#   remplissage et le type de trait assurent la distinction
+#   supplementaire (cf. st_palette_shapes(), st_palette_linetypes()).
+
+qualitative:
+  couleurs:
+    - "#194A8F"  # bleu fonce
+    - "#F6A539"  # orange clair
+    - "#2D75DB"  # bleu clair
+    - "#CB872D"  # orange fonce
+    - "#1C686D"  # sarcelle foncee
+    - "#FBBEAF"  # peche tres clair
+    - "#CC50DF"  # violet
+    - "#35BA96"  # vert-sarcelle clair
+  seuil_avertissement: 10  # distance minimale (CIE LAB) en-deca de laquelle
+                            # st_palette() avertit d'une distinguabilite
+                            # reduite
+
+sequentielle:
+  teinte: "Blues 3"     # palette colorspace::sequential_hcl()
+
+divergente:
+  teinte: "Blue-Red 3"  # palette colorspace::diverging_hcl()
+
+gris_impression:
+  luminosite_min: 15   # evite le noir pur (illisible sur certaines imprimantes)
+  luminosite_max: 85   # evite le blanc pur (invisible sur fond blanc)
+
+formes:            # cf. st_palette_shapes() : canal secondaire (points)
+  - 16   # rond plein
+  - 17   # triangle plein
+  - 15   # carre plein
+  - 3    # croix
+  - 4    # croix diagonale
+  - 8    # etoile
+
+types_trait:        # cf. st_palette_linetypes() : canal secondaire (lignes)
+  - "solid"
+  - "dashed"
+  - "dotted"
+  - "dotdash"
+  - "longdash"
+  - "twodash"

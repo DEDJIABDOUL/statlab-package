@@ -1,0 +1,48 @@
+Package: statlab
+Title: Outils Internes de Statistique et de Reporting
+Version: 0.0.1
+Authors@R:
+    person("Dedji Abdoul", "Batinou", , "societedilari@gmail.com", role = c("aut", "cre"))
+Description: Boite a outils interne fournissant des regles, gabarits et
+    schemas standardises pour les traitements statistiques et le reporting.
+    Ce package est actuellement un squelette : aucune fonctionnalite
+    metier n'est encore implementee.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 8.0.0
+Imports:
+    car,
+    checkmate,
+    cli,
+    colorspace,
+    data.table,
+    digest,
+    dplyr,
+    flextable,
+    forcats,
+    ggplot2,
+    ggpubr,
+    ggsignif,
+    gt,
+    gtsummary,
+    methods,
+    powerjoin,
+    quarto,
+    ragg,
+    readr,
+    readxl,
+    rstatix,
+    scales,
+    stats,
+    stringdist,
+    svglite,
+    systemfonts,
+    tidyr,
+    tools,
+    utils,
+    yaml
+Suggests:
+    openxlsx,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

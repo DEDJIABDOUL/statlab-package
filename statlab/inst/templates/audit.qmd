@@ -1,0 +1,344 @@
+---
+title: "Rapport d'audit des données"
+lang: fr
+params:
+  data_path: ""
+format:
+  html:
+    toc: true
+    toc-title: "Sommaire"
+    toc-depth: 2
+    embed-resources: true
+    theme: cosmo
+    fig-width: 7.5
+    fig-height: 4.5
+    grid:
+      body-width: 900px
+  pdf:
+    toc: true
+    toc-title: "Sommaire"
+    toc-depth: 2
+    documentclass: article
+    geometry: "margin=2cm"
+    fig-width: 6.5
+    fig-height: 4
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(gt)
+library(ggplot2)
+
+.palette <- list(
+  ink = "#0b0b0b",
+  ink_secondary = "#52514e",
+  ink_muted = "#898781",
+  grid = "#e1e0d9",
+  surface = "#fcfcfb",
+  blue = "#2a78d6",
+  critical = "#d03b3b",
+  warning = "#b8790c",
+  neutral = "#52514e"
+)
+
+.severity_labels <- c(
+  bloquant = "Bloquant",
+  avertissement = "Avertissement",
+  information = "Information"
+)
+.severity_colors <- c(
+  bloquant = .palette$critical,
+  avertissement = .palette$warning,
+  information = .palette$neutral
+)
+
+.check_titles <- c(
+  missing_codes = "Codage incohérent des valeurs manquantes",
+  missing_rate = "Taux de valeurs manquantes",
+  duplicate_rows = "Lignes en double",
+  duplicate_ids = "Identifiants dupliqués",
+  constant_columns = "Variable sans variation",
+  empty_columns = "Variable vide ou presque vide",
+  level_variants = "Modalités à harmoniser",
+  high_cardinality = "Trop de catégories différentes",
+  impossible_values = "Valeurs impossibles",
+  outliers = "Valeurs extrêmes",
+  date_coherence = "Dates dans le désordre",
+  numeric_in_text = "Variable numérique mal classée"
+)
+.check_explanations <- c(
+  missing_codes = "Plusieurs facons differentes de noter une valeur manquante ont ete utilisees pour la meme colonne, ce qui peut fausser leur comptage.",
+  missing_rate = "Une part importante des valeurs de cette colonne est manquante.",
+  duplicate_rows = "Des lignes sont rigoureusement identiques sur toutes les colonnes : il s'agit probablement d'une meme observation saisie ou importee plusieurs fois.",
+  duplicate_ids = "Le meme identifiant apparait plusieurs fois, ce qui contredit l'hypothese d'une ligne par personne ou par observation.",
+  constant_columns = "Cette colonne ne prend qu'une seule valeur (ou presque) : elle n'apportera pas d'information a l'analyse.",
+  empty_columns = "Cette colonne est vide ou presque vide.",
+  level_variants = "Certaines reponses designent visiblement la meme chose mais sont ecrites differemment (majuscules, espaces, accents).",
+  high_cardinality = "Cette colonne compte un tres grand nombre de categories differentes pour une variable de type categoriel.",
+  impossible_values = "Certaines valeurs sont hors des limites physiologiquement possibles : il s'agit probablement d'erreurs de saisie.",
+  outliers = "Certaines valeurs sont statistiquement tres eloignees des autres, sans etre physiologiquement impossibles.",
+  date_coherence = "Deux dates ne respectent pas l'ordre chronologique observe pour la grande majorite des lignes.",
+  numeric_in_text = "Cette colonne est actuellement traitee comme du texte libre, alors qu'elle contient presque uniquement des nombres."
+)
+
+nature_labels <- c(
+  identifiant = "Identifiant", continue = "Continue", entiere = "Entière",
+  binaire = "Binaire", nominale = "Nominale", ordinale = "Ordinale",
+  date = "Date", texte = "Texte"
+)
+
+payload <- readRDS(params$data_path)
+
+fmt_pct <- function(x) sprintf("%.1f %%", x * 100)
+fmt_int <- function(x) format(as.integer(x), big.mark = " ")
+
+base_gt_theme <- function(gt_tbl) {
+  gt_tbl |>
+    opt_table_font(font = "Segoe UI") |>
+    tab_options(
+      table.font.size = px(12),
+      table.border.top.style = "none",
+      table.border.bottom.style = "none",
+      column_labels.font.weight = "bold",
+      column_labels.border.bottom.color = .palette$ink,
+      table_body.hlines.color = .palette$grid,
+      data_row.padding = px(4)
+    )
+}
+```
+
+# En-tête {.unnumbered}
+
+```{r}
+#| label: entete
+#| results: asis
+
+nom_projet <- if (!is.null(payload$project$name) && nzchar(payload$project$name)) {
+  payload$project$name
+} else {
+  "Projet sans nom"
+}
+
+cat(sprintf("**Projet :** %s\n\n", nom_projet))
+if (!is.null(payload$project$client) && nzchar(payload$project$client)) {
+  cat(sprintf("**Client :** %s\n\n", payload$project$client))
+}
+cat(sprintf(
+  "**Date du rapport :** %s\n\n",
+  format(payload$project$generated_at, "%d/%m/%Y à %H:%M")
+))
+cat("**Fichiers analysés :**\n\n")
+```
+
+```{r}
+#| label: fichiers-analyses
+
+fichiers_df <- do.call(rbind, lapply(names(payload$sources), function(id) {
+  s <- payload$sources[[id]]
+  data.frame(
+    Source = id,
+    Fichier = s$file_name,
+    Empreinte = substr(s$file_hash, 1, 12),
+    stringsAsFactors = FALSE
+  )
+}))
+
+gt(fichiers_df) |>
+  cols_label(Empreinte = "Empreinte (SHA-256, tronquée)") |>
+  base_gt_theme() |>
+  tab_style(style = cell_text(font = "Consolas", size = px(10)), locations = cells_body(columns = Empreinte))
+```
+
+L'empreinte identifie de maniere unique le contenu exact du fichier au moment de l'analyse : si le
+fichier source change, l'empreinte change aussi.
+
+# Synthèse {.unnumbered}
+
+```{r}
+#| label: synthese
+
+synthese_df <- data.frame(
+  Indicateur = c(
+    "Sources analysées", "Lignes au total", "Variables au total",
+    "Anomalies bloquantes", "Avertissements", "Points d'information"
+  ),
+  Valeur = c(
+    fmt_int(payload$totals$n_sources),
+    fmt_int(payload$totals$n_rows),
+    fmt_int(payload$totals$n_cols),
+    fmt_int(payload$totals$anomaly_counts$bloquant),
+    fmt_int(payload$totals$anomaly_counts$avertissement),
+    fmt_int(payload$totals$anomaly_counts$information)
+  )
+)
+
+gt(synthese_df) |>
+  base_gt_theme() |>
+  tab_style(
+    style = cell_text(color = .severity_colors[["bloquant"]], weight = "bold"),
+    locations = cells_body(columns = Valeur, rows = Indicateur == "Anomalies bloquantes")
+  ) |>
+  tab_style(
+    style = cell_text(color = .severity_colors[["avertissement"]], weight = "bold"),
+    locations = cells_body(columns = Valeur, rows = Indicateur == "Avertissements")
+  )
+```
+
+# Structure des sources {.unnumbered}
+
+```{r}
+#| label: structure-sources
+
+structure_df <- do.call(rbind, lapply(names(payload$sources), function(id) {
+  s <- payload$sources[[id]]
+  data.frame(
+    Source = id,
+    Onglet = if (is.na(s$sheet)) "—" else s$sheet,
+    "Ligne d'en-tête" = s$header_row,
+    Lignes = fmt_int(s$n_rows),
+    Colonnes = fmt_int(s$n_cols),
+    check.names = FALSE, stringsAsFactors = FALSE
+  )
+}))
+
+gt(structure_df) |> base_gt_theme()
+```
+
+# Profil des variables {.unnumbered}
+
+```{r}
+#| label: profil-variables
+#| results: asis
+
+for (id in names(payload$sources)) {
+  cat(sprintf("## Source : %s\n\n", id))
+
+  profil <- payload$sources[[id]]$profile
+  affichage <- data.frame(
+    Variable = profil$name,
+    Nature = nature_labels[profil$inferred_nature],
+    "Manquants" = fmt_pct(profil$pct_missing),
+    "Valeurs distinctes" = fmt_int(profil$n_distinct),
+    "Exemples" = vapply(profil$sample_values, function(v) paste(utils::head(v, 3), collapse = ", "), character(1)),
+    check.names = FALSE, stringsAsFactors = FALSE
+  )
+
+  tbl <- gt(affichage) |>
+    base_gt_theme() |>
+    tab_style(style = cell_text(weight = "bold"), locations = cells_body(columns = Nature)) |>
+    data_color(
+      columns = Nature,
+      method = "factor",
+      palette = c(
+        "#cde2fb", "#9ec5f4", "#eda100", "#eb6834",
+        "#1baf7a", "#4a3aa7", "#e87ba4", "#c3c2b7"
+      ),
+      levels = nature_labels
+    )
+
+  print(tbl)
+  cat("\n\n")
+}
+```
+
+# Anomalies détectées {.unnumbered}
+
+```{r}
+#| label: intro-anomalies
+#| results: asis
+
+if (nrow(payload$anomalies) == 0) {
+  cat("Aucune anomalie n'a ete detectee dans les donnees analysees.\n\n")
+}
+```
+
+```{r}
+#| label: detail-anomalies
+#| results: asis
+
+anomalies <- payload$anomalies
+severites <- c("bloquant", "avertissement", "information")
+
+for (sev in severites) {
+  sous_ensemble <- anomalies[anomalies$severity == sev, , drop = FALSE]
+  if (nrow(sous_ensemble) == 0) next
+
+  cat(sprintf("## %s\n\n", .severity_labels[[sev]]))
+
+  for (check_id in unique(sous_ensemble$check_id)) {
+    lignes <- sous_ensemble[sous_ensemble$check_id == check_id, , drop = FALSE]
+    titre <- if (check_id %in% names(.check_titles)) .check_titles[[check_id]] else check_id
+    explication <- if (check_id %in% names(.check_explanations)) .check_explanations[[check_id]] else ""
+
+    cat(sprintf("### %s\n\n", titre))
+    if (nzchar(explication)) cat(sprintf("%s\n\n", explication))
+
+    for (i in seq_len(nrow(lignes))) {
+      ligne <- lignes[i, ]
+      cible <- if (is.na(ligne$variable)) "Ensemble des donnees" else ligne$variable
+      cat(sprintf(
+        "**%s** (source : %s) — %s lignes concernees (%s). %s\n\n",
+        cible, ligne$source, fmt_int(ligne$n_affected), fmt_pct(ligne$pct_affected), ligne$detail
+      ))
+
+      extrait <- ligne$excerpt[[1]]
+      if (!is.null(extrait) && nrow(extrait) > 0) {
+        print(gt(extrait) |> base_gt_theme())
+        cat("\n\n")
+      }
+    }
+  }
+}
+```
+
+# Distribution des variables quantitatives {.unnumbered}
+
+```{r}
+#| label: distributions
+#| results: asis
+
+for (id in names(payload$sources)) {
+  numeric_long <- payload$numeric_long
+  if (is.null(numeric_long) || !any(numeric_long$source == id)) next
+
+  cat(sprintf("## Source : %s\n\n", id))
+  sous_ensemble <- numeric_long[numeric_long$source == id, , drop = FALSE]
+
+  p <- ggplot(sous_ensemble, aes(x = value)) +
+    geom_histogram(bins = 20, fill = .palette$blue, color = .palette$surface, linewidth = 0.2) +
+    facet_wrap(~variable, scales = "free", ncol = 3) +
+    theme_minimal(base_size = 9) +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(color = .palette$grid, linewidth = 0.3),
+      axis.text = element_text(color = .palette$ink_muted, size = 7),
+      axis.title = element_blank(),
+      strip.text = element_text(color = .palette$ink, face = "bold", size = 8),
+      strip.background = element_rect(fill = NA, color = NA),
+      plot.background = element_rect(fill = .palette$surface, color = NA),
+      panel.background = element_rect(fill = .palette$surface, color = NA)
+    )
+
+  print(p)
+  cat("\n\n")
+}
+```
+
+# Recommandations {.unnumbered}
+
+Points à trancher dans `config.yml` avant de considérer l'analyse définitive :
+
+```{r}
+#| label: recommandations
+#| results: asis
+
+for (item in payload$recommendations) {
+  cat(sprintf("- %s\n", item))
+}
+```

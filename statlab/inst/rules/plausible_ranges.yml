@@ -1,0 +1,95 @@
+# =============================================================================
+# Bornes physiologiques plausibles pour la detection de valeurs impossibles
+# (R/anomalies.R, fonction check_impossible_values()).
+# =============================================================================
+#
+# Ce fichier est editable sans toucher au code R : ajouter, retirer ou
+# corriger une entree suffit, aucune recompilation du package n'est requise.
+#
+# Structure : une entree nommee par grandeur clinique. Chaque entree contient :
+#   motifs : liste de jetons (chr) recherches dans le nom de la variable.
+#            Le nom de variable est mis en minuscules puis decoupe en jetons
+#            sur tout caractere non alphanumerique (ex: "FC_repos" -> "fc",
+#            "repos"). Si un jeton du nom correspond EXACTEMENT a un motif,
+#            la borne s'applique. La comparaison porte sur des jetons entiers,
+#            pas sur des sous-chaines : "codebook" ne correspond pas au motif
+#            "code".
+#   min, max : bornes plausibles (inclusives). Toute valeur numerique en
+#              dehors de [min, max] est signalee comme impossible.
+#   unite : unite attendue, uniquement informative (affichee dans le detail
+#           de l'anomalie).
+#
+# En cas de motifs ambigus entre deux entrees (rare), la premiere entree du
+# fichier dont un motif correspond est retenue : placer les entrees les plus
+# specifiques avant les plus generiques si necessaire.
+#
+# Ce fichier ne couvre que des grandeurs cliniques courantes. Une variable
+# dont le nom ne correspond a aucun motif n'est simplement pas verifiee par
+# check_impossible_values() : ce n'est pas une erreur, juste une absence de
+# regle a ce sujet (le moteur ne devine pas de bornes).
+
+age:
+  motifs: ["age"]
+  min: 0
+  max: 120
+  unite: annees
+
+poids:
+  motifs: ["poids", "masse"]
+  min: 0.5
+  max: 400
+  unite: kg
+
+taille:
+  motifs: ["taille"]
+  min: 30
+  max: 250
+  unite: cm
+
+imc:
+  motifs: ["imc", "bmi"]
+  min: 8
+  max: 80
+  unite: "kg/m2"
+
+systolique:
+  motifs: ["systolique", "pas_systolique", "ta_systolique"]
+  min: 40
+  max: 300
+  unite: mmHg
+
+diastolique:
+  motifs: ["diastolique", "pas_diastolique", "ta_diastolique"]
+  min: 20
+  max: 200
+  unite: mmHg
+
+frequence_cardiaque:
+  motifs: ["frequence_cardiaque", "freq_cardiaque", "fc"]
+  min: 20
+  max: 250
+  unite: "battements/min"
+
+temperature:
+  motifs: ["temperature", "temp"]
+  min: 30
+  max: 43
+  unite: "degres Celsius"
+
+hemoglobine:
+  motifs: ["hemoglobine", "hb"]
+  min: 3
+  max: 25
+  unite: "g/dL"
+
+creatinine:
+  motifs: ["creatinine", "creat"]
+  min: 2
+  max: 2000
+  unite: "micromol/L"
+
+glycemie:
+  motifs: ["glycemie", "glucose"]
+  min: 0.5
+  max: 60
+  unite: "mmol/L"
