@@ -4,23 +4,26 @@
 \alias{st_attestation}
 \title{Generer l'attestation de reproductibilite d'un projet}
 \usage{
-st_attestation(config_path, output = "attestation.txt")
+st_attestation(config, output = "attestation.txt")
 }
 \arguments{
-\item{config_path}{Chemin (chr) vers le fichier \code{config.yml}.}
+\item{config}{Un objet \code{statlab_config} valide, tel que retourne par
+\code{\link[=st_validate_config]{st_validate_config()}}.}
 
 \item{output}{Chemin (chr) du fichier a produire. Si relatif, resolu
-par rapport au repertoire du projet (celui de \code{config.yml}).
-Par defaut, \code{"attestation.txt"} a la racine du projet.}
+par rapport au repertoire du projet. Par defaut,
+\code{"attestation.txt"} a la racine du projet.}
 }
 \value{
 Le chemin absolu (chr) du fichier genere, de maniere invisible.
 }
 \description{
-Produit un document texte certifiant les elements necessaires a la
-reproduction a l'identique de l'analyse : empreinte du fichier
-\code{config.yml}, empreintes des fichiers sources declares, versions des
-packages R utilises, version du referentiel methodologique
-(\code{\link[=st_load_rules]{st_load_rules()}}), et toute derogation operateur consignee dans
-\code{journal.log} (cf. \code{\link[=st_evaluate_rules]{st_evaluate_rules()}}).
+Rejoue la chaine d'analyse (lecture, reconciliation, preparation) pour
+produire un document texte certifiant les elements necessaires a la
+reproduction a l'identique de l'analyse : empreintes des fichiers
+sources, versions exactes de tous les packages utilises, version du
+referentiel methodologique (\code{\link[=st_load_rules]{st_load_rules()}}), effectifs a chaque etape
+(lecture, reconciliation, exclusions avec motifs, effectif final), et
+toute derogation operateur consignee dans \code{journal.log}
+(cf. \code{\link[=st_evaluate_rules]{st_evaluate_rules()}}).
 }

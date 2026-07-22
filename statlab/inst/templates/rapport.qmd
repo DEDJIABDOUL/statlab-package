@@ -3,11 +3,16 @@ title: "Rapport d'analyse"
 lang: fr
 params:
   data_path: ""
+crossref:
+  fig-title: Figure
+  tbl-title: Tableau
+  title-delim: " — "
 format:
   docx:
     reference-doc: reference.docx
     toc: true
     toc-title: "Sommaire"
+    fig-dpi: 300
   pdf:
     toc: true
     toc-title: "Sommaire"
@@ -34,13 +39,17 @@ payload <- readRDS(params$data_path)
 fmt_int <- function(x) format(as.integer(x), big.mark = " ")
 flextable::set_flextable_defaults(font.size = 10, padding = 3)
 
-# Le theme des graphiques (R/theme.R) resout un nom de police systeme (ex :
-# "Segoe UI") via {systemfonts}. Le device PDF de base ne connait pas ces
-# noms (base de polices PostScript limitee) et echoue au rendu ; cairo_pdf
-# les resout correctement. Sans effet sur le rendu docx (device png par
-# defaut, deja compatible).
+# Resolution du dpi/format des figures selon la sortie : PNG 300 dpi dans le
+# Word (raster, insere par reference-doc), vectoriel dans le PDF. Le theme
+# des graphiques resout un nom de police systeme (ex : "Segoe UI") via
+# {systemfonts} ; le device PDF de base ne connait pas ces noms (base de
+# polices PostScript limitee) et echoue au rendu, contrairement a cairo_pdf
+# (vectoriel, gere les polices systeme correctement).
+knitr::opts_chunk$set(dpi = 300)
 if (knitr::is_latex_output()) {
   knitr::opts_chunk$set(dev = "cairo_pdf")
+} else {
+  knitr::opts_chunk$set(dev = "png")
 }
 ```
 
@@ -69,7 +78,8 @@ cat(sprintf("**Date :** %s\n\n", format(payload$project$generated_at, "%d/%m/%Y 
 # Population étudiée
 
 ```{r}
-#| label: population
+#| label: tbl-population
+#| tbl-cap: "Effectifs de la population étudiée"
 
 resume_df <- data.frame(
   Indicateur = c("Effectif avant préparation", "Effectif final (analysé)"),
@@ -91,7 +101,8 @@ if (nrow(exclusions_df) == 0) {
 ```
 
 ```{r}
-#| label: tableau-exclusions
+#| label: tbl-exclusions
+#| tbl-cap: "Critères d'exclusion appliqués"
 
 if (nrow(exclusions_df) > 0) {
   affichage <- data.frame(
@@ -108,7 +119,7 @@ if (nrow(exclusions_df) > 0) {
 # Tableau 1
 
 ```{r}
-#| label: tableau1
+#| label: tableau1-absent
 #| results: asis
 
 if (is.null(payload$table1)) {
@@ -117,7 +128,8 @@ if (is.null(payload$table1)) {
 ```
 
 ```{r}
-#| label: tableau1-contenu
+#| label: tbl-tableau1
+#| tbl-cap: "Caractéristiques de la population"
 
 if (!is.null(payload$table1)) {
   payload$table1
@@ -134,15 +146,34 @@ if (length(payload$comparisons) == 0) {
   cat("Aucune comparaison n'a été déclarée dans la configuration ('analyse.comparaisons').\n\n")
 }
 
-for (item in payload$comparisons) {
-  cat(sprintf("\n\n## %s selon %s\n\n", item$label_variable, item$label_group))
-  cat(sprintf("**Test retenu :** %s\n\n", item$result$test_name))
-  cat(sprintf("*Justification méthodologique : %s*\n\n", item$result$justification))
+# Chaque comparaison produit un tableau et une figure numérotés (légendes et
+# numérotation natives, via le mécanisme de renvois croisés de Quarto) :
+# la boucle ne peut pas utiliser directement les options de chunk tbl-cap/
+# fig-cap (une seule paire par chunk), d'où le recours à knitr::knit_child()
+# pour générer un chunk independant, avec ses propres options, par analyse.
+for (i in seq_along(payload$comparisons)) {
+  item <- payload$comparisons[[i]]
 
-  print(flextable::autofit(item$descriptive_flex))
+  entete <- sprintf(
+    "\n\n## %s selon %s\n\n**Test retenu :** %s\n\n*Justification méthodologique : %s*\n\n",
+    item$label_variable, item$label_group, item$result$test_name, item$result$justification
+  )
+  cat(entete)
+
+  tbl_cap <- sprintf("Statistiques descriptives — %s selon %s", item$label_variable, item$label_group)
+  chunk_tableau <- sprintf(
+    "```{r}\n#| label: tbl-comparaison-%d\n#| tbl-cap: \"%s\"\n#| echo: false\nflextable::autofit(payload$comparisons[[%d]]$descriptive_flex)\n```\n",
+    i, tbl_cap, i
+  )
+  cat(knitr::knit_child(text = chunk_tableau, quiet = TRUE), sep = "\n")
 
   if (!is.null(item$plot)) {
-    print(item$plot)
+    fig_cap <- sprintf("%s selon %s", item$label_variable, item$label_group)
+    chunk_figure <- sprintf(
+      "```{r}\n#| label: fig-comparaison-%d\n#| fig-cap: \"%s\"\n#| echo: false\npayload$comparisons[[%d]]$plot\n```\n",
+      i, fig_cap, i
+    )
+    cat(knitr::knit_child(text = chunk_figure, quiet = TRUE), sep = "\n")
   }
 
   cat(sprintf("\n\n%s\n\n", item$reading_sentence))
@@ -151,20 +182,30 @@ for (item in payload$comparisons) {
 
 # Méthodologie
 
-Le choix de chaque test statistique n'est jamais fixé a priori : il résulte de
-l'évaluation, par un moteur de règles déterministe (référentiel
-méthodologique, version `r payload$rules_version`), des conditions
-d'application (normalité par test de Shapiro-Wilk, homogénéité des variances
-par test de Levene, effectifs théoriques pour le choix entre Chi2 et Fisher
-exact). La justification de chaque choix est reproduite ci-dessous, variable
-par variable.
-
 ```{r}
-#| label: methodologie-tableau
+#| label: methodologie-intro
 #| results: asis
 
+cat(sprintf(
+  paste(
+    "Le choix de chaque test statistique n'est jamais fixé a priori : il résulte de",
+    "l'évaluation, par un moteur de règles déterministe (référentiel méthodologique,",
+    "version %s), des conditions d'application (normalité par test de Shapiro-Wilk,",
+    "homogénéité des variances par test de Levene, effectifs théoriques pour le choix",
+    "entre Chi2 et Fisher exact). La justification de chaque choix est reproduite",
+    "ci-dessous, variable par variable.\n\n",
+    "Analyse réalisée avec R version %s.\n\n"
+  ),
+  payload$rules_version, payload$r_version
+))
+```
+
+```{r}
+#| label: tbl-methodologie
+#| tbl-cap: "Tests retenus et justifications méthodologiques"
+
 if (length(payload$comparisons) == 0) {
-  cat("Aucune comparaison à documenter.\n\n")
+  knitr::asis_output("Aucune comparaison à documenter.\n\n")
 } else {
   methodo_df <- do.call(rbind, lapply(payload$comparisons, function(item) {
     data.frame(
@@ -175,7 +216,7 @@ if (length(payload$comparisons) == 0) {
       check.names = FALSE
     )
   }))
-  print(flextable::autofit(flextable::flextable(methodo_df)))
+  flextable::autofit(flextable::flextable(methodo_df))
 }
 ```
 

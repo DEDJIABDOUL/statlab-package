@@ -69,7 +69,7 @@ st_report <- function(config_path, output_dir = "sorties/rapport", formats = c("
   output_dir_resolved <- normalizePath(output_dir_resolved, winslash = "/", mustWork = TRUE)
 
   script_path <- st_export_script(config, output = file.path(output_dir_resolved, "analyse.R"))
-  attestation_path <- st_attestation(config_path, output = file.path(output_dir_resolved, "attestation.txt"))
+  attestation_path <- st_attestation(config, output = file.path(output_dir_resolved, "attestation.txt"))
 
   payload <- .rp_build_payload(config, prepared_data, n_avant_preparation, exclusions_df, script_path, attestation_path)
 
@@ -191,7 +191,8 @@ st_report <- function(config_path, output_dir = "sorties/rapport", formats = c("
     comparisons = .rp_build_comparisons(prepared_data, config),
     script_path = script_path,
     attestation_path = attestation_path,
-    rules_version = attr(st_load_rules(), "version")
+    rules_version = attr(st_load_rules(), "version"),
+    r_version = paste(R.version$major, R.version$minor, sep = ".")
   )
 }
 

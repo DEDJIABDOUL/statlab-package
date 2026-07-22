@@ -61,6 +61,7 @@ st_table1 <- function(data, config) {
 
   statistics <- .table1_statistics_spec(working_data, variables, dictionary)
   labels <- .table1_labels_spec(variables, dictionary)
+  types <- .table1_type_spec(variables, dictionary)
 
   # "missing" chez gtsummary ne controle que l'AFFICHAGE d'une ligne de
   # comptage des manquants : cela n'inclut jamais les manquants dans le
@@ -81,6 +82,7 @@ st_table1 <- function(data, config) {
     include = dplyr::all_of(variables),
     statistic = statistics,
     label = labels,
+    type = types,
     digits = gtsummary::all_continuous() ~ decimals,
     missing = missing_mode,
     missing_text = "Manquant"
@@ -182,6 +184,33 @@ st_table1_csv <- function(table1) {
     }
   }
   data
+}
+
+# --- Type gtsummary (continuous/categorical), pilote par le dictionnaire ---
+
+.table1_type_spec <- function(variables, dictionary) {
+  # gtsummary auto-detecte le type d'une colonne numerique d'apres son
+  # nombre de valeurs distinctes (categorical si peu nombreuses), pas
+  # d'apres son type R : sans cette declaration explicite, une variable
+  # continue avec peu de valeurs distinctes (petit echantillon, ou variable
+  # discrete a faible etendue) serait a tort traitee comme categorielle, et
+  # rejetterait alors moyenne/ecart-type ou mediane/IQR.
+  specs <- list()
+  for (variable in variables) {
+    nature <- if (!is.null(dictionary[[variable]])) dictionary[[variable]]$nature else NA_character_
+    type_text <- if (nature %in% c("continue", "entiere")) {
+      "continuous"
+    } else if (nature %in% c("binaire", "nominale", "ordinale")) {
+      "categorical"
+    } else {
+      next
+    }
+    specs[[variable]] <- stats::as.formula(sprintf("`%s` ~ %s", variable, deparse(type_text)))
+  }
+  if (length(specs) == 0) {
+    return(NULL)
+  }
+  unname(specs)
 }
 
 # --- Choix de la statistique (moyenne/ecart-type vs mediane/IQR) -----------
