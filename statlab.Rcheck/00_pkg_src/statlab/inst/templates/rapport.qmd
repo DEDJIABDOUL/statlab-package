@@ -1,0 +1,252 @@
+---
+title: "Rapport d'analyse"
+lang: fr
+params:
+  data_path: ""
+crossref:
+  fig-title: Figure
+  tbl-title: Tableau
+  title-delim: " — "
+format:
+  docx:
+    reference-doc: reference.docx
+    toc: true
+    toc-title: "Sommaire"
+    fig-dpi: 300
+  pdf:
+    toc: true
+    toc-title: "Sommaire"
+    toc-depth: 2
+    documentclass: article
+    geometry: "margin=2.5cm"
+    fig-width: 6.5
+    fig-height: 4
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(flextable)
+library(ggplot2)
+
+payload <- readRDS(params$data_path)
+
+fmt_int <- function(x) format(as.integer(x), big.mark = " ")
+flextable::set_flextable_defaults(font.size = 10, padding = 3)
+
+# Resolution du dpi/format des figures selon la sortie : PNG 300 dpi dans le
+# Word (raster, insere par reference-doc), vectoriel dans le PDF. Le theme
+# des graphiques resout un nom de police systeme (ex : "Segoe UI") via
+# {systemfonts} ; le device PDF de base ne connait pas ces noms (base de
+# polices PostScript limitee) et echoue au rendu, contrairement a cairo_pdf
+# (vectoriel, gere les polices systeme correctement).
+knitr::opts_chunk$set(dpi = 300)
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(dev = "cairo_pdf")
+} else {
+  knitr::opts_chunk$set(dev = "png")
+}
+```
+
+# Page de garde {.unnumbered}
+
+```{r}
+#| label: page-de-garde
+#| results: asis
+
+nom_projet <- if (!is.null(payload$project$name) && nzchar(payload$project$name)) {
+  payload$project$name
+} else {
+  "Projet sans nom"
+}
+
+cat(sprintf("\n\n# %s {.unnumbered}\n\n", nom_projet))
+if (!is.null(payload$project$client) && nzchar(payload$project$client)) {
+  cat(sprintf("**Client :** %s\n\n", payload$project$client))
+}
+cat(sprintf("**Auteur :** %s\n\n", payload$project$auteur))
+cat(sprintf("**Date :** %s\n\n", format(payload$project$generated_at, "%d/%m/%Y à %H:%M")))
+```
+
+{{< pagebreak >}}
+
+# Population étudiée
+
+```{r}
+#| label: tbl-population
+#| tbl-cap: "Effectifs de la population étudiée"
+
+resume_df <- data.frame(
+  Indicateur = c("Effectif avant préparation", "Effectif final (analysé)"),
+  Valeur = c(fmt_int(payload$population$n_initial), fmt_int(payload$population$n_final))
+)
+flextable::flextable(resume_df) |> flextable::autofit()
+```
+
+```{r}
+#| label: exclusions
+#| results: asis
+
+exclusions_df <- payload$population$exclusions
+if (nrow(exclusions_df) == 0) {
+  cat("Aucune exclusion d'observation n'a été appliquée.\n\n")
+} else {
+  cat("Les critères d'exclusion suivants ont été appliqués, dans cet ordre :\n\n")
+}
+```
+
+```{r}
+#| label: tbl-exclusions
+#| tbl-cap: "Critères d'exclusion appliqués"
+
+if (nrow(exclusions_df) > 0) {
+  affichage <- data.frame(
+    Motif = exclusions_df$motif,
+    "Effectif avant" = fmt_int(exclusions_df$n_avant),
+    "Effectif après" = fmt_int(exclusions_df$n_apres),
+    "Exclu(e)s" = fmt_int(exclusions_df$n_exclues),
+    check.names = FALSE
+  )
+  flextable::flextable(affichage) |> flextable::autofit()
+}
+```
+
+# Tableau 1
+
+```{r}
+#| label: tableau1-absent
+#| results: asis
+
+if (is.null(payload$table1)) {
+  cat("Aucun tableau 1 n'a été déclaré dans la configuration ('analyse.tableau_1').\n\n")
+}
+```
+
+```{r}
+#| label: tbl-tableau1
+#| tbl-cap: "Caractéristiques de la population"
+
+if (!is.null(payload$table1)) {
+  payload$table1
+}
+```
+
+# Résultats des comparaisons
+
+```{r}
+#| label: comparaisons
+#| results: asis
+
+if (length(payload$comparisons) == 0) {
+  cat("Aucune comparaison n'a été déclarée dans la configuration ('analyse.comparaisons').\n\n")
+}
+
+# Chaque comparaison produit un tableau et une figure numérotés (légendes et
+# numérotation natives, via le mécanisme de renvois croisés de Quarto) :
+# la boucle ne peut pas utiliser directement les options de chunk tbl-cap/
+# fig-cap (une seule paire par chunk), d'où le recours à knitr::knit_child()
+# pour générer un chunk independant, avec ses propres options, par analyse.
+for (i in seq_along(payload$comparisons)) {
+  item <- payload$comparisons[[i]]
+
+  entete <- sprintf(
+    "\n\n## %s selon %s\n\n**Test retenu :** %s\n\n*Justification méthodologique : %s*\n\n",
+    item$label_variable, item$label_group, item$result$test_name, item$result$justification
+  )
+  cat(entete)
+
+  tbl_cap <- sprintf("Statistiques descriptives — %s selon %s", item$label_variable, item$label_group)
+  chunk_tableau <- sprintf(
+    "```{r}\n#| label: tbl-comparaison-%d\n#| tbl-cap: \"%s\"\n#| echo: false\nflextable::autofit(payload$comparisons[[%d]]$descriptive_flex)\n```\n",
+    i, tbl_cap, i
+  )
+  cat(knitr::knit_child(text = chunk_tableau, quiet = TRUE), sep = "\n")
+
+  if (!is.null(item$plot)) {
+    fig_cap <- sprintf("%s selon %s", item$label_variable, item$label_group)
+    chunk_figure <- sprintf(
+      "```{r}\n#| label: fig-comparaison-%d\n#| fig-cap: \"%s\"\n#| echo: false\npayload$comparisons[[%d]]$plot\n```\n",
+      i, fig_cap, i
+    )
+    cat(knitr::knit_child(text = chunk_figure, quiet = TRUE), sep = "\n")
+  }
+
+  cat(sprintf("\n\n%s\n\n", item$reading_sentence))
+}
+```
+
+# Méthodologie
+
+```{r}
+#| label: methodologie-intro
+#| results: asis
+
+cat(sprintf(
+  paste(
+    "Le choix de chaque test statistique n'est jamais fixé a priori : il résulte de",
+    "l'évaluation, par un moteur de règles déterministe (référentiel méthodologique,",
+    "version %s), des conditions d'application (normalité par test de Shapiro-Wilk,",
+    "homogénéité des variances par test de Levene, effectifs théoriques pour le choix",
+    "entre Chi2 et Fisher exact). La justification de chaque choix est reproduite",
+    "ci-dessous, variable par variable.\n\n",
+    "Analyse réalisée avec R version %s.\n\n"
+  ),
+  payload$rules_version, payload$r_version
+))
+```
+
+```{r}
+#| label: tbl-methodologie
+#| tbl-cap: "Tests retenus et justifications méthodologiques"
+
+if (length(payload$comparisons) == 0) {
+  knitr::asis_output("Aucune comparaison à documenter.\n\n")
+} else {
+  methodo_df <- do.call(rbind, lapply(payload$comparisons, function(item) {
+    data.frame(
+      Variable = item$label_variable,
+      Groupe = item$label_group,
+      "Test retenu" = item$result$test_name,
+      Justification = item$result$justification,
+      check.names = FALSE
+    )
+  }))
+  flextable::autofit(flextable::flextable(methodo_df))
+}
+```
+
+{{< pagebreak >}}
+
+# Annexe A : script R complet {.unnumbered}
+
+Le script ci-dessous reproduit intégralement la chaîne d'analyse (lecture,
+réconciliation, préparation, tests, graphiques) à partir des données brutes,
+sans dépendre du package `statlab` : seuls des packages publics du CRAN sont
+nécessaires à son exécution.
+
+```{r}
+#| label: annexe-script
+#| results: asis
+
+cat("```r\n")
+cat(paste(readLines(payload$script_path), collapse = "\n"))
+cat("\n```\n")
+```
+
+{{< pagebreak >}}
+
+# Annexe B : attestation de reproductibilité {.unnumbered}
+
+```{r}
+#| label: annexe-attestation
+#| results: asis
+
+cat("```\n")
+cat(paste(readLines(payload$attestation_path), collapse = "\n"))
+cat("\n```\n")
+```

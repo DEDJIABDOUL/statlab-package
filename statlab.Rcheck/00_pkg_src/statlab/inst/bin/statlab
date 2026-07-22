@@ -1,0 +1,6 @@
+#!/usr/bin/env Rscript
+# Point d'entree de la commande "statlab". Le package statlab doit etre
+# installe (pas seulement charge via devtools::load_all()) pour que ':::'
+# resolve son espace de noms sans 'library()' explicite.
+statut <- statlab:::.cli_main(commandArgs(trailingOnly = TRUE))
+quit(status = statut, save = "no")

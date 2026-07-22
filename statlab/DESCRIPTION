@@ -12,6 +12,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Imports:
+    bslib,
     car,
     checkmate,
     cli,
@@ -19,6 +20,7 @@ Imports:
     data.table,
     digest,
     dplyr,
+    DT,
     flextable,
     forcats,
     ggplot2,
@@ -36,6 +38,8 @@ Imports:
     rstatix,
     scales,
     sessioninfo,
+    shiny,
+    shinyFiles,
     stats,
     stringdist,
     svglite,

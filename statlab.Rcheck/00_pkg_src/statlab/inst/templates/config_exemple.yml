@@ -1,0 +1,100 @@
+# =============================================================================
+# Exemple complet et valide de config.yml
+# =============================================================================
+# A copier a la racine d'un projet client et a adapter. Les chemins de
+# "sources[].fichier" sont relatifs a ce fichier, c'est-a-dire au repertoire
+# du projet (voir donnees_brutes/ dans la structure standard).
+
+projet:
+  nom: "Etude ACTIF - suivi a 12 mois"
+  langue: fr
+  client: "Centre hospitalier exemple"
+
+sources:
+  - id: inclusion
+    fichier: donnees_brutes/inclusion.xlsx
+    onglet: Feuille1
+    ligne_entete: 1
+  - id: suivi
+    fichier: donnees_brutes/suivi_12_mois.csv
+
+reconciliation:
+  - operation: joindre
+    gauche: inclusion
+    droite: suivi
+    cle: identifiant_patient
+    normaliser_cle: true
+    type: gauche
+    resultat: donnees_completes
+    alerte_explosion: true
+
+dictionnaire:
+  age:
+    nature: continue
+    libelle: "Age a l'inclusion"
+    unite: annees
+  sexe:
+    nature: binaire
+    libelle: Sexe
+    modalites: ["homme", "femme"]
+  groupe_traitement:
+    nature: nominale
+    libelle: "Groupe de traitement"
+    modalites: ["intervention", "controle"]
+  stade_tumoral:
+    nature: ordinale
+    libelle: "Stade tumoral"
+    modalites: ["I", "II", "III", "IV"]
+  date_inclusion:
+    nature: date
+    libelle: "Date d'inclusion"
+  identifiant_patient:
+    nature: identifiant
+    libelle: "Identifiant patient"
+  commentaire_investigateur:
+    nature: texte
+    libelle: "Commentaire libre de l'investigateur"
+
+preparation:
+  # Ordre d'execution fixe (non lie a l'ordre d'ecriture ci-dessous) :
+  # variables, dates, recodages, derivations, classes, exclusions, manquants.
+  recodages:
+    stade_tumoral:
+      ordre: ["I", "II", "III", "IV"]
+
+  derivations:
+    - nom: imc
+      formule: "as.numeric(poids) / (as.numeric(taille) / 100)^2"
+      libelle: "Indice de masse corporelle (kg/m2)"
+
+  classes:
+    imc:
+      seuils: [18.5, 25, 30]
+      libelles: ["Insuffisance ponderale", "Corpulence normale", "Surpoids", "Obesite"]
+
+  exclusions:
+    - condition: "as.numeric(age) < 18"
+      motif: "Mineur au moment de l'inclusion"
+
+  manquants:
+    - strategie: exclure_ligne
+      variables: [groupe_traitement]
+    - strategie: conserver
+
+analyse:
+  tableau_1:
+    stratification: groupe_traitement
+    variables: ["age", "sexe", "stade_tumoral", "imc"]
+  comparaisons:
+    - variables: ["age", "imc"]
+      groupe: groupe_traitement
+      apparie: false
+    - variables: ["stade_tumoral"]
+      groupe: groupe_traitement
+      apparie: false
+
+rendu:
+  charte: charte_ch_exemple
+  declinaisons: ["ecran", "impression"]
+  decimales: 2
+  formats: ["docx", "pdf"]

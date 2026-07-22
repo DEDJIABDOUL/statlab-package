@@ -1,0 +1,146 @@
+# =============================================================================
+# Schema de reference du fichier config.yml d'un projet statlab
+# =============================================================================
+#
+# Ce fichier n'est pas lu par le moteur : il documente la structure attendue.
+# La validation effective est realisee par R/config.R (st_validate_config()).
+#
+# Convention :
+#   - "requis"    : le champ doit etre present, sinon erreur.
+#   - "optionnel" : le champ peut etre omis. La valeur par defaut, si elle
+#                   existe, est indiquee.
+#   - Toute section et tout champ non documente ici produit une erreur au
+#     moment de la validation (le moteur ne devine jamais).
+#   - Les chemins de fichiers declares dans "sources" sont relatifs au
+#     repertoire contenant le fichier config.yml.
+#
+# -----------------------------------------------------------------------------
+
+# --- projet (section requise) ------------------------------------------------
+projet:
+  nom: chr               # requis  - nom du projet, utilise dans les rapports
+  langue: chr            # optionnel, defaut "fr"
+  client: chr            # optionnel - nom du client/commanditaire
+
+# --- sources (section requise) ----------------------------------------------
+# Liste (sequence YAML) de sources de donnees brutes.
+sources:
+  - id: chr              # requis  - identifiant court, unique parmi les sources
+    fichier: chr          # requis  - chemin relatif au repertoire du config.yml
+    onglet: chr           # optionnel - nom de l'onglet (fichiers Excel)
+    ligne_entete: int     # optionnel - numero de la ligne d'en-tete
+
+# --- reconciliation (section optionnelle) -----------------------------------
+# Liste d'operations d'assemblage entre sources, executees dans l'ordre par
+# R/reconcile.R (st_reconcile()). Le champ "resultat" de chaque operation
+# devient un identifiant utilisable comme "gauche"/"droite"/"source"/"sources"
+# par une operation suivante, au meme titre qu'un identifiant de "sources".
+reconciliation:
+  - operation: empiler          # empile (rbind) plusieurs sources
+    sources: [chr]               # requis - au moins deux identifiants
+    resultat: chr                 # requis - nom donne a la table produite
+    sur_colonnes_divergentes: chr # optionnel, defaut "erreur"
+                                   #   parmi : erreur, intersection, union
+
+  - operation: joindre          # jointure entre deux tables
+    gauche: chr                   # requis - identifiant de la table gauche
+    droite: chr                   # requis - identifiant de la table droite
+    cle: chr                      # requis - nom de variable, ou [chr] pour
+                                   #   une cle composite
+    normaliser_cle: bool          # optionnel, defaut true
+    type: chr                     # optionnel, defaut "gauche"
+                                   #   parmi : gauche, interieure, complete
+    resultat: chr                 # requis
+    alerte_explosion: bool        # optionnel, defaut true
+
+  - operation: pivoter_long     # passage au format long (tidyr::pivot_longer)
+    source: chr                   # requis - identifiant de la table source
+    cles: [chr]                   # requis - colonnes conservees telles quelles
+    mesures: [chr]                 # requis - colonnes rassemblees
+    nom_temps: chr                 # requis - nom de la colonne "temps" produite
+    nom_valeur: chr                # requis - nom de la colonne "valeur" produite
+    resultat: chr                  # requis
+
+# --- dictionnaire (section optionnelle) --------------------------------------
+# Mapping (et non une liste) : chaque cle est le nom exact d'une variable.
+dictionnaire:
+  nom_variable:           # cle = nom de la variable dans les donnees
+    nature: chr           # requis - une valeur parmi :
+                           #   identifiant, continue, entiere, binaire,
+                           #   nominale, ordinale, date, texte
+    libelle: chr          # optionnel - libelle destine aux rapports
+    unite: chr            # optionnel - unite de mesure
+    modalites: [chr]      # optionnel - liste des modalites (nominale/ordinale)
+
+# --- preparation (section optionnelle) ---------------------------------------
+# Appliquee par R/prepare.R (st_prepare()), dans cet ordre fixe : variables,
+# dates, recodages, derivations, classes, exclusions, manquants.
+preparation:
+  variables:                # optionnel - selection et renommage de colonnes
+    selectionner: [chr]      # optionnel - noms (d'origine) a conserver
+    renommer: {chr: chr}     # optionnel - mapping ancien_nom: nouveau_nom
+
+  dates:                     # optionnel - liste nommee par variable
+    nom_variable:
+      format: chr            # requis - format strptime (ex: "%d/%m/%Y")
+
+  recodages:                 # optionnel - liste nommee par variable
+    nom_variable:
+      fusionner: {chr: [chr]} # optionnel - nouvelle_modalite: [anciennes valeurs]
+      ordre: [chr]            # optionnel - ordre final des modalites (facteur)
+
+  derivations:               # optionnel - liste de variables derivees
+    - nom: chr                # requis - nom de la nouvelle variable
+      formule: chr             # requis - expression de calcul (fonctions
+                                #   autorisees uniquement, cf. R/prepare.R)
+      libelle: chr             # optionnel - libelle destine aux rapports
+
+  classes:                   # optionnel - liste nommee par variable
+    nom_variable:
+      seuils: [num]            # avec libelles ; XOR avec methode/n
+      libelles: [chr]           # requis avec seuils (longueur = seuils + 1)
+      methode: chr              # avec n ; XOR avec seuils/libelles
+                                 #   valeur possible : quantiles
+      "n": int                  # requis avec methode
+                                 #   IMPORTANT : ecrire la clef entre
+                                 #   guillemets ("n": 4). Sans guillemets,
+                                 #   l'analyseur YAML (norme 1.1) lit le mot
+                                 #   nu "n" comme le booleen FALSE, pas comme
+                                 #   un nom de champ.
+
+  exclusions:                # optionnel - liste de criteres d'exclusion
+    - condition: chr          # requis - expression logique appliquee aux donnees
+      motif: chr               # requis - motif documente dans le rapport/journal
+
+  manquants:                 # optionnel - liste de strategies de traitement
+    - strategie: chr           # requis - une valeur parmi :
+                                 #   conserver, exclure_ligne, imputer
+      variables: [chr]          # optionnel - variables concernees ;
+                                 #   absent = s'applique a tout le reste
+                                 #   (une seule entree catch-all autorisee)
+
+# --- analyse (section optionnelle) -------------------------------------------
+analyse:
+  tableau_1:               # optionnel - tableau descriptif principal
+    stratification: chr    # optionnel - variable de stratification
+    variables: [chr]       # requis (si tableau_1 present) - variables decrites
+    denominateur: chr      # optionnel, defaut "exclure_manquants"
+                            #   parmi : inclure_manquants, exclure_manquants
+                            #   (denominateur des pourcentages des variables
+                            #   categorielles)
+  comparaisons:             # optionnel - liste de comparaisons statistiques
+    - variables: [chr]     # requis - variables comparees
+      groupe: chr          # requis - variable de groupement
+      apparie: bool        # optionnel, defaut false
+      forcer_test: chr     # optionnel - force un test malgre le moteur de
+                            #   regles ; journalise comme derogation
+
+# --- rendu (section optionnelle) ---------------------------------------------
+rendu:
+  charte: chr              # optionnel - identifiant de charte graphique
+  declinaisons: [chr]      # optionnel - declinaisons graphiques a produire
+                            #   par defaut pour chaque figure (R/plots.R,
+                            #   st_save_plot()) ; valeurs parmi : ecran,
+                            #   impression, projection (cf. R/theme.R)
+  decimales: int           # optionnel, defaut 1 - nombre de decimales affichees
+  formats: [chr]           # optionnel - formats de fichiers de sortie

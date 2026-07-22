@@ -1,0 +1,25 @@
+Package: statlab
+Title: Outils Internes de Statistique et de Reporting
+Version: 0.0.1
+Authors@R: 
+    person("Dedji Abdoul", "Batinou", , "societedilari@gmail.com", role = c("aut", "cre"))
+Description: Boite a outils interne fournissant des regles, gabarits et
+    schemas standardises pour les traitements statistiques et le reporting.
+    Ce package est actuellement un squelette : aucune fonctionnalite
+    metier n'est encore implementee.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 8.0.0
+Imports: bslib, car, checkmate, cli, colorspace, data.table, digest,
+        dplyr, DT, flextable, forcats, ggplot2, ggpubr, ggsignif, gt,
+        gtsummary, methods, optparse, powerjoin, quarto, ragg, readr,
+        readxl, rstatix, scales, sessioninfo, shiny, shinyFiles, stats,
+        stringdist, svglite, systemfonts, targets, tidyr, tools, utils,
+        yaml
+Suggests: openxlsx, testthat (>= 3.0.0)
+Config/testthat/edition: 3
+NeedsCompilation: no
+Packaged: 2026-07-22 15:06:42 UTC; dbati
+Author: Dedji Abdoul Batinou [aut, cre]
+Maintainer: Dedji Abdoul Batinou <societedilari@gmail.com>

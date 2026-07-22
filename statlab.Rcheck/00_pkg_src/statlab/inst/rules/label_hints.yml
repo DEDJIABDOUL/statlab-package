@@ -1,0 +1,91 @@
+# =============================================================================
+# Table de correspondance nom technique -> libelle lisible, utilisee par
+# R/scaffold.R (st_scaffold_config()) pour pre-remplir le champ "libelle" du
+# dictionnaire dans config.yml.
+# =============================================================================
+#
+# Ce fichier est editable sans toucher au code R.
+#
+# Structure : chaque cle est un motif (chr), chaque valeur est le libelle
+# francais (chr) a proposer.
+#
+# Correspondance : le nom de la variable est mis en minuscules puis decoupe
+# en jetons sur tout caractere non alphanumerique (ex: "Date_Adm_Hopital"
+# -> "date", "adm", "hopital"). Le motif est decoupe de la meme facon
+# (ex: "date_adm" -> "date", "adm"). Si la sequence de jetons du motif
+# apparait, dans le meme ordre et de maniere contigue, dans les jetons du
+# nom de variable, le libelle correspondant est propose.
+#
+# En cas de plusieurs motifs correspondants pour une meme variable (ex:
+# "date" et "date_adm" correspondent tous les deux a "date_adm_hopital"),
+# le motif le plus specifique (le plus long) est retenu.
+#
+# Si aucun motif ne correspond, un libelle est tout de meme genere par
+# mise en forme naive du nom (underscores remplaces par des espaces,
+# premiere lettre en majuscule), et signale par un commentaire
+# "# A VERIFIER" dans le config.yml genere : ce n'est qu'une supposition.
+
+age: "Âge"
+imc: "IMC"
+bmi: "IMC"
+poids: "Poids"
+taille: "Taille"
+sexe: "Sexe"
+genre: "Genre"
+
+date_naissance: "Date de naissance"
+date_nais: "Date de naissance"
+date_adm: "Date d'admission"
+date_admission: "Date d'admission"
+date_inclusion: "Date d'inclusion"
+date_entree: "Date d'entree"
+date_sortie: "Date de sortie"
+date_deces: "Date de deces"
+date_diagnostic: "Date de diagnostic"
+date_debut: "Date de debut"
+date_fin: "Date de fin"
+date_visite: "Date de visite"
+date_suivi: "Date de suivi"
+
+groupe: "Groupe"
+groupe_traitement: "Groupe de traitement"
+traitement: "Traitement"
+bras: "Bras de l'etude"
+
+diagnostic: "Diagnostic"
+antecedent: "Antecedent"
+antecedents: "Antecedents"
+complication: "Complication"
+comorbidite: "Comorbidite"
+stade: "Stade"
+grade: "Grade"
+score: "Score"
+statut: "Statut"
+resultat: "Resultat"
+
+tabac: "Statut tabagique"
+alcool: "Consommation d'alcool"
+
+systolique: "Pression arterielle systolique"
+diastolique: "Pression arterielle diastolique"
+frequence_cardiaque: "Frequence cardiaque"
+temperature: "Temperature"
+hemoglobine: "Hemoglobine"
+creatinine: "Creatinine"
+glycemie: "Glycemie"
+
+identifiant: "Identifiant"
+patient_id: "Identifiant patient"
+id_patient: "Identifiant patient"
+numero_dossier: "Numero de dossier"
+dossier: "Dossier"
+matricule: "Matricule"
+ipp: "IPP"
+
+commentaire: "Commentaire"
+remarque: "Remarque"
+observation: "Observation"
+note: "Note"
+
+deces: "Deces"
+vivant: "Statut vital"

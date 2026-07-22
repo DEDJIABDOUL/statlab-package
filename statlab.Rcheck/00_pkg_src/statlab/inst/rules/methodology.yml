@@ -1,0 +1,153 @@
+# =============================================================================
+# Referentiel methodologique du moteur de regles (R/rules.R).
+# =============================================================================
+#
+# Ce fichier est editable sans toucher au code R : ajouter, retirer ou
+# corriger une regle suffit. Il est charge par st_load_rules() et evalue
+# par st_evaluate_rules().
+#
+# Le moteur de regles est DETERMINISTE : chaque regle est une condition
+# booleenne evaluee sur un contexte de valeurs numeriques/logiques deja
+# calculees (test_type, shapiro_p, min_group_n, ...). Aucune regle ne fait
+# appel a un modele probabiliste, une heuristique floue, ou une ressource
+# externe.
+#
+# "version" est reporte dans l'attestation de reproductibilite : toute
+# modification du referentiel (ajout, retrait, changement de seuil) doit
+# s'accompagner d'une nouvelle version.
+#
+# Format d'une regle :
+#   id             : identifiant court et stable (chr, unique)
+#   famille        : regroupement thematique (chr) - "preconditions" ici
+#   condition      : expression R booleenne (chr), evaluee sur le contexte.
+#                    Fonctions autorisees : comparaisons, &&/||/!, is.na(),
+#                    is.null(), isTRUE(), isFALSE().
+#   seuils         : liste nommee (nombre) des seuils numeriques utilises
+#                    dans la condition - documentaire, pour audit rapide
+#                    sans avoir a relire l'expression R.
+#   severite       : bloquant | avertissement | information
+#   message        : explication en francais courant (chr), avec des
+#                    references {variable_du_contexte} interpolees.
+#   action         : optionnel (chr) - nom de l'action de remediation
+#                    automatique. Absent = aucune resolution automatique
+#                    possible : une regle bloquante sans action arrete
+#                    l'execution.
+#   justification  : requis si 'action' est present (chr) - texte
+#                    consigne au journal quand l'action est appliquee,
+#                    avec references {variable} interpolees.
+#   source         : optionnel (chr) - reference bibliographique/normative.
+# =============================================================================
+
+version: "1.1.0"
+
+regles:
+  # --- Normalite (Shapiro-Wilk) ----------------------------------------------
+  - id: NORM-002
+    famille: preconditions
+    condition: "test_type == 'comparaison_2_groupes' && is_continuous && min_group_n < 30 && shapiro_p < 0.05"
+    seuils: {shapiro_p: 0.05, min_group_n: 30}
+    severite: bloquant
+    message: "La distribution s'ecarte de la normalite et les effectifs sont reduits. Un test de Student serait mal adapte."
+    action: bascule_mann_whitney
+    justification: "Test de Mann-Whitney retenu en raison d'un ecart a la normalite (Shapiro-Wilk, p = {shapiro_p}) et d'effectifs reduits (n = {min_group_n})."
+    source: "SAMPL guidelines, comparaisons de groupes"
+
+  - id: NORM-001
+    famille: preconditions
+    condition: "test_type == 'comparaison_2_groupes' && is_continuous && min_group_n >= 30 && shapiro_p < 0.05"
+    seuils: {shapiro_p: 0.05, min_group_n: 30}
+    severite: information
+    message: "La distribution s'ecarte de la normalite (Shapiro-Wilk, p = {shapiro_p}), mais l'effectif (n = {min_group_n}) est suffisant pour que le theoreme central limite rende le test de Student robuste a cet ecart."
+    source: "Theoreme central limite ; regle empirique n >= 30"
+
+  # --- Homogeneite des variances (Levene) ------------------------------------
+  - id: VARIANCE-001
+    famille: preconditions
+    condition: "test_type == 'comparaison_2_groupes' && is_continuous && levene_p < 0.05"
+    seuils: {levene_p: 0.05}
+    severite: bloquant
+    message: "Les variances des deux groupes sont significativement differentes (test de Levene) : l'hypothese d'homogeneite des variances du test de Student classique n'est pas verifiee."
+    action: bascule_welch
+    justification: "Test t de Welch retenu en raison d'une heterogeneite des variances (test de Levene, p = {levene_p})."
+    source: "Levene (1960) ; recommandation standard en biostatistique"
+
+  # --- Effectifs theoriques des tableaux croises (regle des 5) --------------
+  - id: CHI2-001
+    famille: preconditions
+    condition: "test_type == 'tableau_croise' && effectif_theorique_min < 5"
+    seuils: {effectif_theorique_min: 5}
+    severite: bloquant
+    message: "Au moins une cellule du tableau croise a un effectif theorique inferieur a 5 : les conditions d'application du test du Chi2 ne sont pas respectees (regle des 5)."
+    action: bascule_fisher_exact
+    justification: "Test exact de Fisher retenu car l'effectif theorique minimal ({effectif_theorique_min}) est inferieur au seuil de 5 requis pour le test du Chi2 (regle de Cochran)."
+    source: "Cochran (1954) ; regle des 5 pour les tableaux de contingence"
+
+  # --- Taille des groupes -----------------------------------------------------
+  - id: GROUPE-001
+    famille: preconditions
+    condition: "min_group_n < 5"
+    seuils: {min_group_n: 5}
+    severite: bloquant
+    message: "Au moins un des groupes compares comporte moins de 5 observations : aucun test statistique standard n'est fiable a cet effectif."
+    source: "Recommandation generale : effectif minimal de 5 par groupe pour toute inference"
+
+  # --- Appariement declare vs structure des donnees --------------------------
+  - id: APPARIEMENT-001
+    famille: preconditions
+    condition: "apparie == TRUE && n_paires_completes < n_total_declare"
+    seuils: {}
+    severite: bloquant
+    message: "L'analyse a ete declaree appariee, mais la structure des donnees ne comporte pas de paire complete pour chaque observation declaree."
+    source: "Coherence structurelle : appariement declare vs donnees observees"
+
+  - id: APPARIEMENT-002
+    famille: preconditions
+    condition: "apparie == FALSE && n_total_declare > 0 && n_paires_completes == n_total_declare"
+    seuils: {}
+    severite: avertissement
+    message: "L'analyse a ete declaree non appariee, mais la structure des donnees (memes identifiants presents dans les deux groupes) suggere un appariement possible : verifier que l'independance des observations est bien justifiee."
+    source: "Coherence structurelle : appariement declare vs donnees observees"
+
+  # --- Normalite : comparaison appariee (differences) ------------------------
+  - id: NORM-003
+    famille: preconditions
+    condition: "test_type == 'comparaison_appariee' && shapiro_p < 0.05"
+    seuils: {shapiro_p: 0.05}
+    severite: bloquant
+    message: "Les differences entre les paires s'ecartent de la normalite (Shapiro-Wilk) : un test t apparie classique serait mal adapte."
+    action: bascule_wilcoxon_apparie
+    justification: "Test de Wilcoxon apparie retenu en raison d'un ecart a la normalite des differences (Shapiro-Wilk, p = {shapiro_p})."
+    source: "SAMPL guidelines, comparaisons appariees"
+
+  # --- Normalite : comparaison multi-groupes (ANOVA) --------------------------
+  - id: NORM-004
+    famille: preconditions
+    condition: "test_type == 'comparaison_multi_groupes' && shapiro_p < 0.05"
+    seuils: {shapiro_p: 0.05}
+    severite: bloquant
+    message: "Au moins un des groupes s'ecarte de la normalite (Shapiro-Wilk) : une ANOVA classique serait mal adaptee."
+    action: bascule_kruskal_wallis
+    justification: "Test de Kruskal-Wallis retenu en raison d'un ecart a la normalite d'au moins un groupe (Shapiro-Wilk, p = {shapiro_p})."
+    source: "SAMPL guidelines, comparaisons multi-groupes"
+
+  # --- Homogeneite des variances : multi-groupes (ANOVA de Welch) -------------
+  - id: VARIANCE-002
+    famille: preconditions
+    condition: "test_type == 'comparaison_multi_groupes' && levene_p < 0.05"
+    seuils: {levene_p: 0.05}
+    severite: bloquant
+    message: "Les variances des groupes compares sont significativement differentes (test de Levene) : l'hypothese d'homogeneite des variances de l'ANOVA classique n'est pas verifiee."
+    action: bascule_welch_anova
+    justification: "ANOVA de Welch retenue en raison d'une heterogeneite des variances entre groupes (test de Levene, p = {levene_p})."
+    source: "Levene (1960) ; recommandation standard en biostatistique"
+
+  # --- Normalite : correlation -------------------------------------------------
+  - id: CORR-001
+    famille: preconditions
+    condition: "test_type == 'correlation' && (shapiro_p_x < 0.05 || shapiro_p_y < 0.05)"
+    seuils: {shapiro_p_x: 0.05, shapiro_p_y: 0.05}
+    severite: bloquant
+    message: "Au moins une des deux variables s'ecarte de la normalite (Shapiro-Wilk) : une correlation de Pearson serait mal adaptee."
+    action: bascule_spearman
+    justification: "Correlation de Spearman retenue en raison d'un ecart a la normalite d'au moins une variable (Shapiro-Wilk, p1 = {shapiro_p_x}, p2 = {shapiro_p_y})."
+    source: "SAMPL guidelines, correlations"

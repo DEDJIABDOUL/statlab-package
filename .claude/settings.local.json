@@ -104,7 +104,25 @@
       "Bash(kill -0 716)",
       "Bash(kill -0 1474)",
       "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" \"C:/Users/dbati/AppData/Local/Temp/claude/C--Users-dbati-Documents-spa/c0035cf2-504b-4122-bc31-7daa5ea8c2e3/scratchpad/check_tar_meta.R\")",
-      "Bash(kill -0 1904)"
+      "Bash(kill -0 1904)",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" \"C:/Users/dbati/AppData/Local/Temp/claude/C--Users-dbati-Documents-spa/c0035cf2-504b-4122-bc31-7daa5ea8c2e3/scratchpad/run_targets_minitest.R\")",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" \"C:/Users/dbati/AppData/Local/Temp/claude/C--Users-dbati-Documents-spa/c0035cf2-504b-4122-bc31-7daa5ea8c2e3/scratchpad/check_tar_progress_real.R\")",
+      "Bash(kill -0 42)",
+      "Bash(kill -0 871)",
+      "Bash(kill -0 616)",
+      "Bash(kill -0 1127)",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" \"C:/Users/dbati/AppData/Local/Temp/claude/C--Users-dbati-Documents-spa/c0035cf2-504b-4122-bc31-7daa5ea8c2e3/scratchpad/run_corpus_smoke.R\")",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" -e \"renv::install\\(c\\('shiny','bslib','DT','shinyFiles'\\)\\)\")",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" \"C:/Users/dbati/AppData/Local/Temp/claude/C--Users-dbati-Documents-spa/c0035cf2-504b-4122-bc31-7daa5ea8c2e3/scratchpad/check_app_syntax.R\")",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" \"C:/Users/dbati/AppData/Local/Temp/claude/C--Users-dbati-Documents-spa/c0035cf2-504b-4122-bc31-7daa5ea8c2e3/scratchpad/launch_app_smoke.R\")",
+      "Bash(echo \"launched pid $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:7645/ --max-time 5)",
+      "Bash(curl -v http://127.0.0.1:7645/ --max-time 30)",
+      "Bash(pkill -f \"launch_app_smoke.R\")",
+      "Bash(pkill -f \"port 7645\")",
+      "Bash(taskkill //F //PID 1084)",
+      "Bash(kill -9 1084)",
+      "Bash(\"/c/Program Files/R/R-4.6.1/bin/Rscript.exe\" -e \"cat\\(requireNamespace\\('shiny', quietly=TRUE\\), packageVersion\\('shiny'\\) >= '1.5.0'\\)\")"
     ]
   }
 }
